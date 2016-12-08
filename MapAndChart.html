@@ -1,0 +1,344 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+<title>Bicycle and Pedestrian Counts</title>
+<link rel="stylesheet" href="http://js.arcgis.com/3.12/dijit/themes/claro/claro.css" />
+<link rel="stylesheet" href="http://js.arcgis.com/3.12/esri/css/esri.css" />
+<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Open Sans">
+   
+<style>
+    html, body {
+        height:100%;
+        width:100%;
+        margin:0;
+        padding:0;
+        margin:0;
+        font-family: "Open Sans";
+    }
+    #leftPane {
+        width:20%;
+        margin:0;
+        border:none;
+    }
+    #map {
+        padding:0;
+    }
+    .nav {
+        padding: 5px 10px;
+        background: #4479BA;
+        color: #FFF;
+        border-radius: 5px;
+        border: solid 1px #20538D;
+        text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+        -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
+        -moz-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
+
+    }
+    #header {
+        text-align: center;
+        height:60px;
+        border-bottom: solid 1px #ccc;
+    }
+		
+   
+</style>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+
+    <script type="text/javascript">
+     
+      var station_name; //this global is set when user clicks a count satation on the map
+      
+      //begin basic google charts code
+      var data;
+      google.load("visualization", "1", { packages: ["corechart"] });
+      google.setOnLoadCallback(drawChart);
+
+      function drawChart() {
+          if (typeof station_name == 'undefined') {
+
+
+              return;
+          } else {
+              document.getElementById("Instructions").style.display = 'none';
+          }
+          var query = new google.visualization.Query('https://www.google.com/fusiontables/gvizdata?tq=1uW6XwYr6UVhPu1_lh-CI0k0l-9__FtVMC8-smiFO');
+          query.setQuery("SELECT ThisDate, TotalPedestrians as 'Pedestrians', TotalBikes as 'Bikes' FROM 1uW6XwYr6UVhPu1_lh-CI0k0l-9__FtVMC8-smiFO WHERE StationID = '" + station_name + "'");
+  
+          query.send(handleQueryResponse);
+          drawToolbar();
+      }
+
+      //the toolbar is the drop down menu in the bottom left corner of the chart
+      //see https://developers.google.com/chart/interactive/docs/gallery/toolbar
+      function drawToolbar() {
+          var components = [
+              { type: 'csv', datasource: "https://www.google.com/fusiontables/exporttable?query=SELECT ThisDate as 'CountDate', TotalPedestrians as 'Pedestrians', TotalBikes as 'Bikes' FROM 1uW6XwYr6UVhPu1_lh-CI0k0l-9__FtVMC8-smiFO WHERE StationID = '" + station_name + "'" },
+          ];
+
+          var container = document.getElementById('toolbar_div');
+          google.visualization.drawToolbar(container, components);//draw the chart toolbar (the download button)
+          
+
+      }
+      function handleQueryResponse(response) {
+          if (response.isError()) {
+              alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+              return;
+          }
+
+          // omitted error handling code
+          var data = response.getDataTable();
+          var chart = new google.visualization.ColumnChart(document.getElementById('visualization_div'));
+
+
+
+          // code from http://jsfiddle.net/rM8BM/160/.  
+          var columns = [];
+          var series = {};
+          for (var i = 0; i < data.getNumberOfColumns() ; i++) {
+              columns.push(i);
+              if (i > 0) {
+                  series[i - 1] = {};
+              }
+          }
+          var rowCount = data.getNumberOfRows();
+          
+
+          series[0].color = '#044bcb';
+          series[1].color = '#073';
+
+          if (rowCount > 1) {
+              var options = {
+                 "vAxis": { "title": "Count" },
+                  "hAxis": { "title": "Date" },
+                  series: series,
+                  title: station_name,
+                  chartArea: { width: "73%" },   
+                  fontName: 'Verdana',
+                  legend: { position: 'top', alignment: 'end' }
+
+              }
+          } else if (rowCount === 1) {
+              var currentDate = data.getValue(0, 0);
+              var options = {
+                  "vAxis": { "title": "Count" },
+                  "hAxis": {
+                      "title": "Date",
+                      viewWindow: {
+                          min: currentDate,
+                          max: currentDate
+                      },
+                      ticks: [currentDate] // display labels every 25
+                  },
+                  series: series,
+                  title: station_name,
+                  chartArea: { width: "73%" },
+                  fontName: 'Verdana',
+                  legend: { position: 'top', alignment: 'end' }
+              }
+          }
+
+
+          chart.draw(data, options);
+          
+
+          // this section adds the functionality to hide/display a particular series by clicking the legend
+          // code from http://jsfiddle.net/rM8BM/160/.  Note!  One line had to be changed.  See "Changed Line" below
+          google.visualization.events.addListener(chart, 'select', function () {
+              var sel = chart.getSelection();
+              // if selection length is 0, we deselected an element
+              if (sel.length > 0) {
+                  // if row is undefined, we clicked on the legend
+                  // Changed Line.  It was something different before
+                  if (sel[0].row === null) {
+                      var col = sel[0].column;
+                      if (columns[col] == col) {
+                          // hide the data series
+                          columns[col] = {
+                              label: data.getColumnLabel(col),
+                              type: data.getColumnType(col),
+                              calc: function () {
+                                  return null;
+                              }
+                          };
+
+                          // grey out the legend entry
+                          series[col - 1].color = '#CCCCCC';
+                      }
+                      else {
+                          // show the data series
+                          columns[col] = col;
+
+                          //this will only work if two variables are being shown.  if more than two are shown,
+                          //uncomment the line immediately above here and delete the entire if/then below
+                          if (col == 1) {
+                              series[col - 1].color = '#044bcb';
+                          } else {
+                              series[col - 1].color = '#073';
+                          }
+                      }
+                      var view = new google.visualization.DataView(data);
+                      view.setColumns(columns);
+                      chart.draw(view, options);
+                  }
+              }
+          });
+
+      }
+</script>
+<script src="http://js.arcgis.com/3.12/"></script>
+<script>
+    //this starts the ERSI JS Code.  It's based on https://developers.arcgis.com/javascript/jssamples/popup_sidepanel.html, but is heavily modified
+    require([
+        "dojo/ready",
+        "dojo/on",
+        "dojo/_base/connect",
+        "dojo/dom",
+        "dijit/registry",
+        "dojo/dom-construct",
+        "dojo/parser",
+        "dijit/layout/BorderContainer",
+        "dijit/layout/ContentPane", "dijit/TitlePane",
+        "esri/map",
+        "esri/arcgis/utils",
+        "esri/domUtils",
+        "esri/dijit/Popup", "esri/dijit/BasemapGallery", "esri/layers/FeatureLayer", "esri/InfoTemplate", "esri/renderers/SimpleRenderer", "esri/Color", "esri/symbols/Symbol"
+    ], function (
+        ready,
+        on,
+        connect,
+        dom,
+        registry,
+        domConstruct,
+        parser,
+        BorderContainer,
+        ContentPane, TitlePane,
+        Map,
+        arcgisUtils,
+        domUtils,
+        Popup, BasemapGallery, FeatureLayer, InfoTemplate, SimpleRenderer, Color, Symbol
+    ) {
+        ready(function () {
+
+            parser.parse();
+
+            var map = new Map("map", {
+                basemap: "gray",
+                center: [-84.054, 35.887],
+                zoom: 10
+
+            });
+
+            //format the count station points.  This blue matches the blue on the IBikeKNX website
+            var simpleJson = {
+                "type": "simple",
+                "label": "",
+                "description": "",
+                "symbol": {
+                    "color": [4,75,203],
+                    "size": 6,
+                    "angle": 0,
+                    "xoffset": 0,
+                    "yoffset": 0,
+                    "type": "esriSMS",
+                    "style": "esriSMSCircle",
+                    "outline": {
+                        "color": [0, 0, 0],
+                        "width": 0.8,
+                        "type": "esriSLS",
+                        "style": "esriSLSSolid"
+                    }
+                }
+            };
+            var rend = new esri.renderer.SimpleRenderer(simpleJson);
+
+
+           var template = new InfoTemplate();
+           template.setTitle("<b>${StationName}</b>");
+
+            //add the counts layer to the map
+            var featureLayer = new FeatureLayer("http://services2.arcgis.com/Gypl21NmiWS1cM7h/arcgis/rest/services/BikePedCounts/FeatureServer/0", {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                infoTemplate: template,
+                outFields: ["StationName"]
+            });
+            featureLayer.setRenderer(rend); //set the renderer defined above
+            //hide these stations - they don't have any chart data
+            featureLayer.setDefinitionExpression("DisplayOnline = 'Y'");
+            map.addLayer(featureLayer);
+            map.infoWindow.set("popupWindow", false);
+
+            initializeSidebar(map);
+
+            //set up the basemap switcher ("gallery")
+            var basemapGallery = new esri.dijit.BasemapGallery({
+                showArcGISBasemaps: true,
+                map: map
+            }, "basemapGallery");
+            basemapGallery.startup();
+            dojo.connect(basemapGallery, "onError", function (msg) { console.log(msg); });
+
+            function initializeSidebar(map) {
+                var popup = map.infoWindow;
+
+                //when the selection changes update the side panel to display the popup info for the 
+                //currently selected feature. 
+                connect.connect(popup, "onSelectionChange", function () {
+                    displayPopupContent(popup.getSelectedFeature());
+                });
+            }
+
+            function displayPopupContent(feature) {
+                //there's no popup, but this function gets the StationName of the point that is clicked
+                if (feature) {
+
+                    //this line sets the station_name variable that's sent to the where clause of fusion table query 
+                    station_name = feature.attributes["StationName"]; 
+                    station_name.trim; //on station had a space at the end of the name and that broke the FT query 
+                    var content = feature.getContent();
+                    drawChart(); //draw the chart
+                    drawToolbar(); //draw the chart toolbar (the download button)
+
+                }
+            }
+        });
+    });
+</script>
+</head>
+
+<body class="claro">
+
+<div id="mainWindow" data-dojo-type="dijit/layout/BorderContainer" 
+    data-dojo-props="design:'headline',gutters:false" 
+    style="width:100%; height:100%;">
+    <div data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="gutters:false" 
+        region="bottom" style="width: 100%;height:40%;">
+        
+     <div id="visualization_div" data-dojo-type="dijit/layout/ContentPane" 
+            data-dojo-props="region:'center'" style="overflow:hidden;"></div> 
+            <!-- this is the dropdown menu in the bottom left of the chart -->
+            <div id ="toolbar_div" style = "position: absolute; left: 0px; bottom: 0px; z-index: 999"></div> 
+
+            <div id = "Instructions" style ="z-index:1000"><img src="Instructions.png" style ="max-width: 100%; max-height: 100%;" ></div>
+            
+     </div>
+
+    <div id="map" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'">
+        <div style="position:absolute; right:20px; top:10px; z-Index:999;">
+            <div data-dojo-type="dijit/TitlePane" 
+                 data-dojo-props="title:'Switch Basemap', closable:false, open:false">
+              <div data-dojo-type="dijit/layout/ContentPane" style="width:380px; height:280px; overflow:auto;">
+                <div id="basemapGallery"></div>
+              </div>
+            </div>
+        </div>
+    </div> 
+</div>  
+
+ 
+</body>
+
+</html> 
